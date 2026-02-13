@@ -116,11 +116,11 @@ function SwipePage() {
     logout,
   } = useStore();
 
-  // SWR: fetch users with 8-second refresh
+  // SWR: fetch users with 2-minute refresh
   const { data: usersData, error: swrError, isLoading, mutate } = useSWR(
     '/users',
     swrFetcher,
-    { refreshInterval: 8000, revalidateOnFocus: false }
+    { refreshInterval: 120000, revalidateOnFocus: false }
   );
 
   useEffect(() => {

@@ -55,7 +55,7 @@ function MatchesPage() {
   const { data: matchesData, error: swrError, isLoading, mutate } = useSWR(
     '/matches',
     swrFetcher,
-    { refreshInterval: 5000, revalidateOnFocus: false }
+    { refreshInterval: 60000, revalidateOnFocus: false }
   );
 
   useEffect(() => {
