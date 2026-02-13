@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import useSWR from 'swr';
 import useStore from '../store/useStore';
 import { crushAPI, swrFetcher } from '../services/api';
+import { connectSocket, disconnectSocket, onMatch, offMatch } from '../services/socket';
 import SwipeCard from '../components/SwipeCard';
 import MatchPopup from '../components/MatchPopup';
 import AnimatedBackground from '../components/AnimatedBackground';
@@ -66,6 +67,41 @@ function UndoToast({ user, direction, secondsLeft, onUndo }) {
   );
 }
 
+// Real-time match notification toast
+function MatchNotification({ matchedUser, onClose }) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 5000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -50, x: '-50%' }}
+      animate={{ opacity: 1, y: 0, x: '-50%' }}
+      exit={{ opacity: 0, y: -50, x: '-50%' }}
+      className="fixed top-4 left-1/2 z-50"
+    >
+      <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-500 shadow-xl">
+        <img
+          src={matchedUser.image}
+          alt={matchedUser.name}
+          className="w-10 h-10 rounded-full object-cover border-2 border-white"
+        />
+        <div>
+          <p className="text-white font-bold">New Match!</p>
+          <p className="text-white/80 text-sm">{matchedUser.name} likes you too!</p>
+        </div>
+        <button
+          onClick={onClose}
+          className="ml-2 text-white/70 hover:text-white cursor-pointer"
+        >
+          ✕
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
 function SwipePage() {
   const navigate = useNavigate();
   const {
@@ -93,12 +129,33 @@ function SwipePage() {
 
   const [matchedUser, setMatchedUser] = useState(null);
   const [showMatch, setShowMatch] = useState(false);
+  const [realtimeMatch, setRealtimeMatch] = useState(null);
 
   // Undo state
   const [pendingSwipe, setPendingSwipe] = useState(null);
   const [secondsLeft, setSecondsLeft] = useState(UNDO_DURATION);
   const timerRef = useRef(null);
   const countdownRef = useRef(null);
+
+  // Socket connection for real-time match notifications
+  useEffect(() => {
+    if (user?._id) {
+      connectSocket(user._id);
+
+      const handleMatch = (data) => {
+        console.log('Real-time match received:', data);
+        setRealtimeMatch(data.matchedUser);
+        addMatch(data.matchedUser);
+      };
+
+      onMatch(handleMatch);
+
+      return () => {
+        offMatch(handleMatch);
+        disconnectSocket();
+      };
+    }
+  }, [user?._id, addMatch]);
 
   useEffect(() => {
     return () => clearPendingTimers();
@@ -201,8 +258,7 @@ function SwipePage() {
               <button
                 onClick={() => { logout(); navigate('/'); }}
                 className="text-white/40 text-sm hover:text-white/70 transition-colors cursor-pointer underline underline-offset-2 py-6"
-             
-             >
+              >
                 Logout & go home
               </button>
             </div>
@@ -215,6 +271,16 @@ function SwipePage() {
   return (
     <AnimatedBackground variant="dark">
       <div className="min-h-screen flex flex-col">
+        {/* Real-time match notification */}
+        <AnimatePresence>
+          {realtimeMatch && (
+            <MatchNotification
+              matchedUser={realtimeMatch}
+              onClose={() => setRealtimeMatch(null)}
+            />
+          )}
+        </AnimatePresence>
+
         {/* Header */}
         <header className="flex justify-between items-center px-4 py-3 sm:px-6 sm:py-4">
           <motion.button
