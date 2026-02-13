@@ -74,4 +74,7 @@ export const matchesAPI = {
   }
 };
 
+// SWR fetcher using the configured axios instance
+export const swrFetcher = (url) => api.get(url).then((res) => res.data);
+
 export default api;

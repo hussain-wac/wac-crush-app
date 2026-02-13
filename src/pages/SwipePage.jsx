@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import useSWR from 'swr';
 import useStore from '../store/useStore';
-import { usersAPI, crushAPI } from '../services/api';
+import { crushAPI, swrFetcher } from '../services/api';
 import SwipeCard from '../components/SwipeCard';
 import MatchPopup from '../components/MatchPopup';
 import AnimatedBackground from '../components/AnimatedBackground';
@@ -76,10 +77,20 @@ function SwipePage() {
     prevUser,
     addMatch,
     hasMoreUsers,
+    logout,
   } = useStore();
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+  // SWR: fetch users with 8-second refresh
+  const { data: usersData, error: swrError, isLoading, mutate } = useSWR(
+    '/users',
+    swrFetcher,
+    { refreshInterval: 8000, revalidateOnFocus: false }
+  );
+
+  useEffect(() => {
+    if (usersData) setSwipeableUsers(usersData);
+  }, [usersData, setSwipeableUsers]);
+
   const [matchedUser, setMatchedUser] = useState(null);
   const [showMatch, setShowMatch] = useState(false);
 
@@ -90,7 +101,6 @@ function SwipePage() {
   const countdownRef = useRef(null);
 
   useEffect(() => {
-    loadUsers();
     return () => clearPendingTimers();
   }, []);
 
@@ -117,19 +127,6 @@ function SwipePage() {
       console.error('Swipe error:', err);
     }
   }, [clearPendingTimers, addMatch]);
-
-  const loadUsers = async () => {
-    try {
-      setIsLoading(true);
-      const users = await usersAPI.getSwipeableUsers();
-      setSwipeableUsers(users);
-    } catch (err) {
-      setError('Failed to load users. Please try again.');
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleSwipe = (direction) => {
     const currentUser = swipeableUsers[currentIndex];
@@ -190,16 +187,25 @@ function SwipePage() {
     );
   }
 
-  if (error) {
+  if (swrError) {
     return (
       <AnimatedBackground variant="dark">
         <div className="min-h-screen flex items-center justify-center p-4">
           <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-3xl p-8 text-center max-w-sm w-full">
             <div className="text-5xl mb-4">😕</div>
-            <p className="text-white/80 mb-6">{error}</p>
-            <GradientButton onClick={loadUsers} size="md">
-              Try Again
-            </GradientButton>
+            <p className="text-white/80 mb-6">Failed to load users. Please try again.</p>
+            <div className="flex flex-col items-center gap-3">
+              <GradientButton onClick={() => mutate()} size="md">
+                Try Again
+              </GradientButton>
+              <button
+                onClick={() => { logout(); navigate('/'); }}
+                className="text-white/40 text-sm hover:text-white/70 transition-colors cursor-pointer underline underline-offset-2 py-6"
+             
+             >
+                Logout & go home
+              </button>
+            </div>
           </div>
         </div>
       </AnimatedBackground>
