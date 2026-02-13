@@ -28,10 +28,6 @@ function RegisterPage() {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        setError('Image must be less than 5MB');
-        return;
-      }
       setImage(file);
       setImagePreview(URL.createObjectURL(file));
       setError('');

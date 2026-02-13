@@ -44,6 +44,10 @@ const useStore = create(
         currentIndex: state.currentIndex + 1
       })),
 
+      prevUser: () => set((state) => ({
+        currentIndex: Math.max(0, state.currentIndex - 1)
+      })),
+
       getCurrentUser: () => {
         const state = get();
         return state.swipeableUsers[state.currentIndex] || null;

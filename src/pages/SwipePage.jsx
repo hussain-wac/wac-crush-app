@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import useStore from '../store/useStore';
@@ -8,6 +8,63 @@ import MatchPopup from '../components/MatchPopup';
 import AnimatedBackground from '../components/AnimatedBackground';
 import GradientButton from '../components/GradientButton';
 
+const UNDO_DURATION = 4; // seconds
+
+function UndoToast({ user, direction, secondsLeft, onUndo }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 40 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 40 }}
+      className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40"
+    >
+      <div className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-gray-800/90 backdrop-blur-md border border-white/15 shadow-xl">
+        <img
+          src={user.image}
+          alt={user.name}
+          className="w-8 h-8 rounded-full object-cover border border-white/20"
+        />
+        <span className="text-white/70 text-sm">
+          {direction === 'right' ? 'Liked' : 'Passed'}{' '}
+          <span className="text-white font-medium">{user.name}</span>
+        </span>
+
+        {/* Countdown ring */}
+        <div className="relative w-7 h-7 shrink-0">
+          <svg className="w-full h-full -rotate-90" viewBox="0 0 28 28">
+            <circle cx="14" cy="14" r="12" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="2" />
+            <motion.circle
+              cx="14"
+              cy="14"
+              r="12"
+              fill="none"
+              stroke="#ff4b6e"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeDasharray={2 * Math.PI * 12}
+              initial={{ strokeDashoffset: 0 }}
+              animate={{ strokeDashoffset: 2 * Math.PI * 12 }}
+              transition={{ duration: UNDO_DURATION, ease: 'linear' }}
+            />
+          </svg>
+          <span className="absolute inset-0 flex items-center justify-center text-white/60 text-[10px] font-medium">
+            {secondsLeft}
+          </span>
+        </div>
+
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.92 }}
+          onClick={onUndo}
+          className="px-3 py-1 rounded-full bg-primary text-white text-sm font-bold cursor-pointer hover:bg-primary/80 transition-colors"
+        >
+          Undo
+        </motion.button>
+      </div>
+    </motion.div>
+  );
+}
+
 function SwipePage() {
   const navigate = useNavigate();
   const {
@@ -16,6 +73,7 @@ function SwipePage() {
     setSwipeableUsers,
     currentIndex,
     nextUser,
+    prevUser,
     addMatch,
     hasMoreUsers,
   } = useStore();
@@ -25,9 +83,40 @@ function SwipePage() {
   const [matchedUser, setMatchedUser] = useState(null);
   const [showMatch, setShowMatch] = useState(false);
 
+  // Undo state
+  const [pendingSwipe, setPendingSwipe] = useState(null);
+  const [secondsLeft, setSecondsLeft] = useState(UNDO_DURATION);
+  const timerRef = useRef(null);
+  const countdownRef = useRef(null);
+
   useEffect(() => {
     loadUsers();
+    return () => clearPendingTimers();
   }, []);
+
+  const clearPendingTimers = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    timerRef.current = null;
+    countdownRef.current = null;
+  }, []);
+
+  const commitSwipe = useCallback(async (targetUser, direction) => {
+    clearPendingTimers();
+    setPendingSwipe(null);
+
+    try {
+      const result = await crushAPI.swipe(targetUser._id, direction);
+
+      if (result.matched) {
+        setMatchedUser(result.matchedUser);
+        addMatch(result.matchedUser);
+        setShowMatch(true);
+      }
+    } catch (err) {
+      console.error('Swipe error:', err);
+    }
+  }, [clearPendingTimers, addMatch]);
 
   const loadUsers = async () => {
     try {
@@ -42,24 +131,45 @@ function SwipePage() {
     }
   };
 
-  const handleSwipe = async (direction) => {
+  const handleSwipe = (direction) => {
     const currentUser = swipeableUsers[currentIndex];
     if (!currentUser) return;
 
-    try {
-      const result = await crushAPI.swipe(currentUser._id, direction);
-
-      if (result.matched) {
-        setMatchedUser(result.matchedUser);
-        addMatch(result.matchedUser);
-        setShowMatch(true);
-      }
-
-      nextUser();
-    } catch (err) {
-      console.error('Swipe error:', err);
+    // If there's already a pending swipe, commit it immediately before starting a new one
+    if (pendingSwipe) {
+      commitSwipe(pendingSwipe.user, pendingSwipe.direction);
     }
+
+    // Move to next card immediately
+    nextUser();
+
+    // Start undo timer
+    setSecondsLeft(UNDO_DURATION);
+    setPendingSwipe({ user: currentUser, direction });
+
+    clearPendingTimers();
+
+    // Countdown display
+    let remaining = UNDO_DURATION;
+    countdownRef.current = setInterval(() => {
+      remaining -= 1;
+      setSecondsLeft(remaining);
+      if (remaining <= 0) clearInterval(countdownRef.current);
+    }, 1000);
+
+    // Auto-commit after UNDO_DURATION seconds
+    timerRef.current = setTimeout(() => {
+      commitSwipe(currentUser, direction);
+    }, UNDO_DURATION * 1000);
   };
+
+  const handleUndo = useCallback(() => {
+    if (!pendingSwipe) return;
+
+    clearPendingTimers();
+    setPendingSwipe(null);
+    prevUser();
+  }, [pendingSwipe, clearPendingTimers, prevUser]);
 
   const currentSwipeUser = swipeableUsers[currentIndex];
   const hasMore = hasMoreUsers();
@@ -218,6 +328,18 @@ function SwipePage() {
             </motion.button>
           </motion.div>
         )}
+
+        {/* Undo Toast */}
+        <AnimatePresence>
+          {pendingSwipe && (
+            <UndoToast
+              user={pendingSwipe.user}
+              direction={pendingSwipe.direction}
+              secondsLeft={secondsLeft}
+              onUndo={handleUndo}
+            />
+          )}
+        </AnimatePresence>
 
         {/* Match Popup */}
         <MatchPopup
