@@ -63,7 +63,16 @@ function SwipeCard({ user, onSwipeLeft, onSwipeRight }) {
 
           {/* Name Overlay */}
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-6">
-            <h2 className="text-white text-2xl font-bold">{user.name}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-white text-2xl font-bold">{user.name}</h2>
+              {user.gender && (
+                <span className={`text-lg px-2 py-1 rounded-full ${
+                  user.gender === 'boy' ? 'bg-blue-500' : 'bg-pink-500'
+                }`}>
+                  {user.gender === 'boy' ? '👦' : '👧'}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>

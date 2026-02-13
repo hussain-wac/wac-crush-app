@@ -23,10 +23,13 @@ api.interceptors.request.use((config) => {
 
 // Auth API
 export const authAPI = {
-  register: async (name, imageFile) => {
+  register: async (credential, name, imageFile, gender, preference) => {
     const formData = new FormData();
+    formData.append('credential', credential);
     formData.append('name', name);
     formData.append('image', imageFile);
+    formData.append('gender', gender);
+    formData.append('preference', preference);
 
     const response = await api.post('/auth/register', formData, {
       headers: {
@@ -36,8 +39,8 @@ export const authAPI = {
     return response.data;
   },
 
-  login: async (name) => {
-    const response = await api.post('/auth/login', { name });
+  login: async (credential) => {
+    const response = await api.post('/auth/login', { credential });
     return response.data;
   },
 
