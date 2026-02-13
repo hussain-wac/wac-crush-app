@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import useStore from '../store/useStore';
@@ -57,6 +58,10 @@ function FeatureCard({ icon, title, desc, index }) {
 function LandingPage() {
   const navigate = useNavigate();
   const isAuthenticated = useStore((state) => state.isAuthenticated);
+
+  useEffect(() => {
+    if (isAuthenticated) navigate('/swipe', { replace: true });
+  }, [isAuthenticated, navigate]);
 
   const handleEnter = () => {
     navigate(isAuthenticated ? '/swipe' : '/register');

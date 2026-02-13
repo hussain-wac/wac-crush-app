@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { GoogleLogin } from '@react-oauth/google';
@@ -8,9 +8,14 @@ import { authAPI } from '../services/api';
 function LoginPage() {
   const navigate = useNavigate();
   const setUser = useStore((state) => state.setUser);
+  const isAuthenticated = useStore((state) => state.isAuthenticated);
 
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated) navigate('/swipe', { replace: true });
+  }, [isAuthenticated, navigate]);
 
   const handleGoogleSuccess = async (credentialResponse) => {
     setIsLoading(true);
