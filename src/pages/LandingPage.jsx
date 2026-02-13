@@ -71,7 +71,7 @@ function LandingPage() {
         >
           {/* Title */}
           <AnimatedText
-            text="Company Crush"
+            text="Find my crush"
             className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white tracking-tight"
             delay={0.2}
           />

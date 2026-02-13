@@ -102,7 +102,7 @@ function SwipePage() {
         >
           ←
         </button>
-        <h1 className="text-white font-bold text-xl">Company Crush 💘</h1>
+        <h1 className="text-white font-bold text-xl">Find my crush 💘</h1>
         <button
           onClick={() => navigate('/matches')}
           className="text-white/80 hover:text-white text-2xl"
