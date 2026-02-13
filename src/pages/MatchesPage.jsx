@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import useSWR from 'swr';
 import useStore from '../store/useStore';
-import { matchesAPI } from '../services/api';
+import { swrFetcher } from '../services/api';
 import AnimatedBackground from '../components/AnimatedBackground';
 import GlassCard from '../components/GlassCard';
 import GradientButton from '../components/GradientButton';
@@ -50,25 +51,16 @@ function MatchCard({ match, index }) {
 function MatchesPage() {
   const navigate = useNavigate();
   const { matches, setMatches } = useStore();
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+
+  const { data: matchesData, error: swrError, isLoading, mutate } = useSWR(
+    '/matches',
+    swrFetcher,
+    { refreshInterval: 5000, revalidateOnFocus: false }
+  );
 
   useEffect(() => {
-    loadMatches();
-  }, []);
-
-  const loadMatches = async () => {
-    try {
-      setIsLoading(true);
-      const data = await matchesAPI.getMatches();
-      setMatches(data);
-    } catch (err) {
-      setError('Failed to load matches');
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    if (matchesData) setMatches(matchesData);
+  }, [matchesData, setMatches]);
 
   if (isLoading) {
     return (
@@ -120,7 +112,7 @@ function MatchesPage() {
             >
               Your Matches
             </motion.h1>
-            {!error && matches.length > 0 && (
+            {!swrError && matches.length > 0 && (
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -145,18 +137,18 @@ function MatchesPage() {
         {/* Content */}
         <div className="flex-1 px-4 sm:px-6 max-w-2xl mx-auto w-full">
           {/* Error state */}
-          {error && (
+          {swrError && (
             <GlassCard className="p-6 sm:p-8 text-center" delay={0.1}>
               <div className="text-5xl mb-4">😕</div>
-              <p className="text-white/70 mb-6">{error}</p>
-              <GradientButton onClick={loadMatches} size="md">
+              <p className="text-white/70 mb-6">Failed to load matches</p>
+              <GradientButton onClick={() => mutate()} size="md">
                 Try Again
               </GradientButton>
             </GlassCard>
           )}
 
           {/* Empty state */}
-          {!error && matches.length === 0 && (
+          {!swrError && matches.length === 0 && (
             <GlassCard className="p-8 sm:p-10 text-center mt-8 sm:mt-16" delay={0.1}>
               <motion.div
                 animate={{ y: [0, -8, 0] }}
